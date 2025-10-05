@@ -25,7 +25,7 @@ Environment=PYTHONDONTWRITEBYTECODE=1
 
 [Install]
 WantedBy=default.targetB Sentinel - 4by4 Keyboard MQTT Bridge
-Documentation=https://github.com/saikhurana/kb_sentinel
+Documentation=https://github.com/saikhurana98/kb_sentinel
 After=network-online.target
 Wants=network-online.target
 
