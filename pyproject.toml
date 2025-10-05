@@ -1,0 +1,10 @@
+[project]
+name = "kb-sentinel"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "evdev>=1.9.2",
+    "paho-mqtt>=2.1.0",
+]
