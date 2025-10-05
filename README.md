@@ -201,12 +201,64 @@ kb_sentinel/
 ├── .env.example     # Environment configuration template
 ├── .env            # Your environment configuration (create from .env.example)
 ├── .gitignore      # Git ignore rules
+├── .github/        # GitHub Actions workflows and scripts
+│   ├── workflows/
+│   │   ├── deploy.yml        # Main CI/CD pipeline
+│   │   ├── rollback.yml      # Manual rollback workflow
+│   │   └── list-backups.yml  # Backup management
+│   ├── scripts/
+│   │   └── deploy.sh         # Deployment script
+│   └── DEPLOYMENT.md         # CI/CD documentation
+├── contrib/        # Service installation and management
+│   ├── README.md             # Service documentation
+│   ├── install-service.sh    # Service installer
+│   ├── uninstall-service.sh  # Service remover
+│   ├── health-check.sh       # Health monitoring
+│   ├── fix-service.sh        # Quick service fixes
+│   └── kb-sentinel.service   # Systemd service template
 ├── kb_sentinel.py  # Main application logic
 ├── main.py         # Simple entry point
+├── Makefile        # Task automation
 ├── pyproject.toml  # Project configuration
 ├── README.md       # This file
 └── uv.lock        # Dependency lock file
 ```
+
+## CI/CD Pipeline
+
+This project includes a comprehensive CI/CD pipeline with GitHub Actions that provides:
+
+- 🚀 **Automated Deployment**: Push to main triggers deployment
+- 💾 **Automatic Backups**: Creates backup before each deployment
+- 🔄 **Auto Rollback**: Rolls back on deployment failures
+- 📊 **Health Monitoring**: Post-deployment validation
+- 🛠️ **Manual Rollback**: Workflow for manual rollbacks
+- 📋 **Backup Reports**: Weekly backup status reports
+
+### Setup CI/CD
+
+1. **Configure Secrets** in your GitHub repository:
+   - `DEPLOY_SSH_KEY`: Private SSH key for deployment host
+   - `DEPLOY_HOST`: Target host IP/hostname
+   - `DEPLOY_USER`: SSH username
+
+2. **Prepare Target Host**:
+   ```bash
+   # Create user and setup directories
+   sudo useradd -m -s /bin/bash kb-sentinel
+   sudo usermod -a -G input kb-sentinel
+   sudo -u kb-sentinel mkdir -p /home/kb-sentinel/{kb_sentinel,backups}
+   
+   # Install dependencies
+   sudo apt install git python3 python3-venv uv
+   
+   # Enable user services
+   sudo loginctl enable-linger kb-sentinel
+   ```
+
+3. **Deploy**: Push to main branch triggers automatic deployment
+
+For detailed CI/CD documentation, see [`.github/DEPLOYMENT.md`](.github/DEPLOYMENT.md).
 
 ## Troubleshooting
 

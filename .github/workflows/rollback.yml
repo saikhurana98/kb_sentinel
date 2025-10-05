@@ -1,0 +1,165 @@
+name: Manual Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_timestamp:
+        description: 'Backup timestamp to rollback to (YYYYMMDD_HHMMSS)'
+        required: true
+        type: string
+      confirm_rollback:
+        description: 'Type "CONFIRM" to proceed with rollback'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_rollback == 'CONFIRM'
+    
+    steps:
+    - name: Validate inputs
+      run: |
+        if [ -z "${{ github.event.inputs.backup_timestamp }}" ]; then
+          echo "❌ Backup timestamp is required"
+          exit 1
+        fi
+        
+        if [ "${{ github.event.inputs.confirm_rollback }}" != "CONFIRM" ]; then
+          echo "❌ Must type CONFIRM to proceed with rollback"
+          exit 1
+        fi
+        
+        echo "✅ Inputs validated"
+    
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+    
+    - name: Add known hosts
+      run: |
+        ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Perform rollback
+      id: rollback
+      run: |
+        ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+          BACKUP_TIMESTAMP="${{ github.event.inputs.backup_timestamp }}"
+          DEPLOY_PATH="/home/kb-sentinel/kb_sentinel"
+          BACKUP_PATH="/home/kb-sentinel/backups"
+          SERVICE_NAME="kb-sentinel"
+          
+          echo "🔄 Starting rollback process..."
+          echo "Backup timestamp: $BACKUP_TIMESTAMP"
+          
+          # Check if backup exists
+          BACKUP_DIR="$BACKUP_PATH/kb_sentinel_$BACKUP_TIMESTAMP"
+          if [ ! -d "$BACKUP_DIR" ]; then
+            echo "❌ Backup not found: $BACKUP_DIR"
+            echo "Available backups:"
+            ls -la "$BACKUP_PATH"/ 2>/dev/null || echo "No backups found"
+            exit 1
+          fi
+          
+          # Stop current service
+          echo "⏹️ Stopping current service..."
+          systemctl --user stop "$SERVICE_NAME.service" || echo "Service was not running"
+          
+          # Backup current state before rollback
+          CURRENT_BACKUP="$BACKUP_PATH/pre_rollback_$(date +%Y%m%d_%H%M%S)"
+          if [ -d "$DEPLOY_PATH" ]; then
+            echo "💾 Creating backup of current state..."
+            cp -r "$DEPLOY_PATH" "$CURRENT_BACKUP"
+            echo "Current state backed up to: $CURRENT_BACKUP"
+          fi
+          
+          # Remove current deployment
+          echo "🗑️ Removing current deployment..."
+          rm -rf "$DEPLOY_PATH"
+          
+          # Restore from backup
+          echo "📦 Restoring from backup..."
+          cp -r "$BACKUP_DIR" "$DEPLOY_PATH"
+          
+          # Start service
+          echo "▶️ Starting service..."
+          cd "$DEPLOY_PATH"
+          systemctl --user start "$SERVICE_NAME.service"
+          
+          # Wait and check status
+          sleep 5
+          if systemctl --user is-active --quiet "$SERVICE_NAME.service"; then
+            echo "✅ Rollback completed successfully"
+            echo "Service is running"
+            
+            # Show service status
+            systemctl --user status "$SERVICE_NAME.service" --no-pager
+            
+            # Run health check if available
+            if [ -f "contrib/health-check.sh" ]; then
+              echo "🏥 Running health check..."
+              chmod +x contrib/health-check.sh
+              ./contrib/health-check.sh || echo "Health check had warnings"
+            fi
+          else
+            echo "❌ Rollback failed - service did not start"
+            systemctl --user status "$SERVICE_NAME.service" --no-pager
+            exit 1
+          fi
+        ' 2>&1 | tee rollback.log
+        
+        if [ ${PIPESTATUS[0]} -eq 0 ]; then
+          echo "rollback_status=success" >> $GITHUB_OUTPUT
+        else
+          echo "rollback_status=failed" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Upload rollback logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: rollback-logs-${{ github.event.inputs.backup_timestamp }}
+        path: rollback.log
+        retention-days: 30
+    
+    - name: Report rollback status
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let logContent = '';
+          try {
+            logContent = fs.readFileSync('rollback.log', 'utf8');
+          } catch (error) {
+            logContent = 'Could not read rollback log';
+          }
+          
+          const status = '${{ steps.rollback.outputs.rollback_status }}';
+          const emoji = status === 'success' ? '✅' : '❌';
+          const title = status === 'success' ? 'Rollback Successful' : 'Rollback Failed';
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `${emoji} ${title} - ${new Date().toISOString()}`,
+            body: `## ${emoji} Manual Rollback ${status === 'success' ? 'Completed' : 'Failed'}
+          
+          **Backup Timestamp:** ${{ github.event.inputs.backup_timestamp }}
+          **Initiated by:** @${context.actor}
+          **Workflow Run:** [${context.runId}](${context.payload.repository.html_url}/actions/runs/${context.runId})
+          
+          ### Rollback Log:
+          \`\`\`
+          ${logContent.slice(-3000)} // Last 3000 chars
+          \`\`\`
+          
+          ${status === 'success' ? 
+            '🎉 The service has been successfully rolled back and is running.' : 
+            '🚨 The rollback failed. Please check the logs and perform manual intervention.'
+          }`
+          });
+    
+    - name: Fail workflow on rollback failure
+      if: steps.rollback.outputs.rollback_status == 'failed'
+      run: exit 1

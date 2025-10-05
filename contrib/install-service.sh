@@ -5,6 +5,12 @@
 
 set -e
 
+# Check for non-interactive mode
+NON_INTERACTIVE=false
+if [[ "$1" == "--non-interactive" ]]; then
+    NON_INTERACTIVE=true
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -84,10 +90,8 @@ print_info "Enabling KB Sentinel service"
 systemctl --user enable kb-sentinel.service
 
 # Ask if user wants to start the service now
-read -p "Do you want to start the service now? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    print_info "Starting KB Sentinel service"
+if [ "$NON_INTERACTIVE" = true ]; then
+    print_info "Non-interactive mode: Starting KB Sentinel service"
     systemctl --user start kb-sentinel.service
     print_success "Service started"
     
@@ -96,8 +100,21 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     print_info "Service status:"
     systemctl --user status kb-sentinel.service --no-pager
 else
-    print_info "Service enabled but not started. You can start it later with:"
-    echo "    systemctl --user start kb-sentinel.service"
+    read -p "Do you want to start the service now? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Starting KB Sentinel service"
+        systemctl --user start kb-sentinel.service
+        print_success "Service started"
+        
+        # Show status
+        echo
+        print_info "Service status:"
+        systemctl --user status kb-sentinel.service --no-pager
+    else
+        print_info "Service enabled but not started. You can start it later with:"
+        echo "    systemctl --user start kb-sentinel.service"
+    fi
 fi
 
 echo
