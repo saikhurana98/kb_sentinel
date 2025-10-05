@@ -27,6 +27,25 @@ The project uses the following Python packages:
 - `evdev` - For keyboard event monitoring
 - `paho-mqtt` - For MQTT communication
 
+## Quick Start
+
+For the fastest setup experience:
+
+```bash
+# Clone and setup
+git clone https://github.com/saikhurana98/kb_sentinel.git
+cd kb_sentinel
+
+# Initial setup (install dependencies and create .env)
+make setup
+
+# Edit .env with your MQTT credentials
+nano .env
+
+# Install and start the service
+make install
+```
+
 ## Installation
 
 1. Clone the repository:
@@ -120,6 +139,35 @@ sudo python3 kb_sentinel.py
 # Option 2: Add your user to the input group (recommended)
 sudo usermod -a -G input $USER
 # Then log out and back in
+```
+
+## Service Management
+
+### Using Make (Recommended)
+
+The project includes a Makefile for easy service management:
+
+```bash
+make help          # Show all available commands
+make setup         # Initial setup (dependencies + .env)
+make install       # Install systemd service
+make start         # Start the service
+make stop          # Stop the service  
+make restart       # Restart the service
+make status        # Show service status
+make logs          # Follow service logs
+make health        # Run health check
+make uninstall     # Remove service
+```
+
+### Manual systemctl Commands
+
+```bash
+systemctl --user start kb-sentinel.service    # Start
+systemctl --user stop kb-sentinel.service     # Stop
+systemctl --user restart kb-sentinel.service  # Restart
+systemctl --user status kb-sentinel.service   # Status
+journalctl --user -u kb-sentinel.service -f   # Logs
 ```
 
 ## MQTT Topics
