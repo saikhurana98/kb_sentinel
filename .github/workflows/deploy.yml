@@ -22,9 +22,6 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${ env.DEPLOY_PATH }
     steps:
     - uses: actions/checkout@v4
     
@@ -35,12 +32,9 @@ jobs:
     
     - name: Install uv
       uses: astral-sh/setup-uv@v3
-    
-
 
     - name: Install dependencies
       run: uv sync
-    
 
     - name: Show Directory
       run: pwd
