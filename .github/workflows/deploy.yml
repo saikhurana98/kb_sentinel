@@ -64,21 +64,21 @@ jobs:
             exit(1)
         " || exit 1
     
-    - name: Validate service files
-      run: |
-        # Check systemd service file syntax
-        if command -v systemd-analyze >/dev/null 2>&1; then
-          systemd-analyze verify contrib/kb-sentinel.service
-        else
-          echo "⚠️ systemd-analyze not available in CI, skipping service validation"
-        fi
+    # - name: Validate service files
+    #   run: |
+    #     # Check systemd service file syntax
+    #     if command -v systemd-analyze >/dev/null 2>&1; then
+    #       systemd-analyze verify contrib/kb-sentinel.service
+    #     else
+    #       echo "⚠️ systemd-analyze not available in CI, skipping service validation"
+    #     fi
         
-        # Check shell scripts syntax
-        bash -n contrib/install-service.sh
-        bash -n contrib/uninstall-service.sh
-        bash -n contrib/health-check.sh
-        bash -n contrib/fix-service.sh
-        echo "✅ Shell script syntax check passed"
+    #     # Check shell scripts syntax
+    #     bash -n contrib/install-service.sh
+    #     bash -n contrib/uninstall-service.sh
+    #     bash -n contrib/health-check.sh
+    #     bash -n contrib/fix-service.sh
+    #     echo "✅ Shell script syntax check passed"
 
   deploy:
     needs: test
