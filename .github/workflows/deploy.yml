@@ -95,6 +95,9 @@ jobs:
       run: |
         echo "🚀 Starting local deployment..."
         
+        # Print the SSH User and Host for debugging
+        echo "Deploying as user: ${{ secrets.DEPLOY_USER }} to host: ${{ secrets.DEPLOY_HOST }}"
+
         # Copy deployment script to target (using local network)
         scp .github/scripts/deploy.sh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
         
