@@ -1,0 +1,163 @@
+name: List Backups
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run weekly to report on backup status
+    - cron: '0 9 * * 1'  # Monday at 9 AM UTC
+
+jobs:
+  list-backups:
+    runs-on: self-hosted
+    
+    steps:
+    - name: List available backups
+      id: list_backups
+      run: |
+        echo "📋 Generating backup report..."
+        
+        ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+          BACKUP_PATH="/home/kb-sentinel/backups"
+          DEPLOY_PATH="/home/kb-sentinel/kb_sentinel"
+          
+          echo "📋 KB Sentinel Backup Report"
+          echo "=============================="
+          echo ""
+          
+          # Current deployment info
+          if [ -d "$DEPLOY_PATH" ]; then
+            echo "🚀 Current Deployment:"
+            cd "$DEPLOY_PATH"
+            if [ -d ".git" ]; then
+              CURRENT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+              CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+              LAST_UPDATE=$(git log -1 --format="%ci" 2>/dev/null || echo "unknown")
+              echo "  Commit: $CURRENT_COMMIT"
+              echo "  Branch: $CURRENT_BRANCH"
+              echo "  Last Update: $LAST_UPDATE"
+            else
+              echo "  Git info not available"
+            fi
+            
+            # Service status
+            if systemctl --user is-active --quiet kb-sentinel.service; then
+              echo "  Service Status: ✅ Running"
+              UPTIME=$(systemctl --user show kb-sentinel.service --property=ActiveEnterTimestamp --value)
+              echo "  Started: $UPTIME"
+            else
+              echo "  Service Status: ❌ Not Running"
+            fi
+          else
+            echo "🚀 Current Deployment: Not found"
+          fi
+          
+          echo ""
+          echo "💾 Available Backups:"
+          
+          if [ -d "$BACKUP_PATH" ] && [ "$(ls -A $BACKUP_PATH 2>/dev/null)" ]; then
+            echo "  Directory: $BACKUP_PATH"
+            echo ""
+            
+            for backup in $(ls -t "$BACKUP_PATH"/kb_sentinel_* 2>/dev/null); do
+              if [ -d "$backup" ]; then
+                backup_name=$(basename "$backup")
+                backup_size=$(du -sh "$backup" 2>/dev/null | cut -f1)
+                backup_date=$(echo "$backup_name" | sed "s/kb_sentinel_//")
+                
+                # Format date for readability
+                formatted_date=$(echo "$backup_date" | sed "s/_/ /" | sed "s/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3/")
+                
+                echo "  📦 $backup_name"
+                echo "     Size: $backup_size"
+                echo "     Date: $formatted_date"
+                
+                # Check if backup has commit info
+                if [ -f "$backup/.previous_commit" ]; then
+                  prev_commit=$(cat "$backup/.previous_commit")
+                  echo "     Commit: $prev_commit"
+                fi
+                
+                echo ""
+              fi
+            done
+            
+            # Backup statistics
+            backup_count=$(ls -1d "$BACKUP_PATH"/kb_sentinel_* 2>/dev/null | wc -l)
+            total_size=$(du -sh "$BACKUP_PATH" 2>/dev/null | cut -f1)
+            echo "📊 Backup Statistics:"
+            echo "     Total Backups: $backup_count"
+            echo "     Total Size: $total_size"
+            
+          else
+            echo "  No backups found in $BACKUP_PATH"
+          fi
+          
+          echo ""
+          echo "🔧 Quick Commands:"
+          echo "  To rollback, use the Manual Rollback workflow with one of the backup timestamps above"
+          echo "  Example timestamp format: 20241006_143022"
+          
+        ' > backup_report.txt
+        
+        cat backup_report.txt
+    
+    - name: Upload backup report
+      uses: actions/upload-artifact@v3
+      with:
+        name: backup-report-${{ github.run_number }}
+        path: backup_report.txt
+        retention-days: 90
+    
+    - name: Create backup report issue (on schedule)
+      if: github.event_name == 'schedule'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let reportContent = '';
+          try {
+            reportContent = fs.readFileSync('backup_report.txt', 'utf8');
+          } catch (error) {
+            reportContent = 'Could not read backup report';
+          }
+          
+          // Check if a recent backup report issue exists
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: 'backup-report',
+            state: 'open'
+          });
+          
+          // Close old backup report issues
+          for (const issue of issues.data) {
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              state: 'closed'
+            });
+          }
+          
+          // Create new issue
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `📋 Weekly Backup Report - ${new Date().toISOString().split('T')[0]}`,
+            labels: ['backup-report', 'automated'],
+            body: `## 📋 KB Sentinel Backup Report
+          
+          This is an automated weekly backup report for the KB Sentinel deployment.
+          
+          \`\`\`
+          ${reportContent}
+          \`\`\`
+          
+          ---
+          *This issue is automatically generated every Monday. Previous backup reports are automatically closed.*
+          
+          **Useful Links:**
+          - [Manual Rollback Workflow](${context.payload.repository.html_url}/actions/workflows/rollback.yml)
+          - [Deployment Logs](${context.payload.repository.html_url}/actions/workflows/deploy.yml)
+          - [Repository](${context.payload.repository.html_url})`
+          });

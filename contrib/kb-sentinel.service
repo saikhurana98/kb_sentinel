@@ -6,40 +6,17 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Documents/Github/kb_sentinel
-ExecStart=%h/Documents/Github/kb_sentinel/.venv/bin/python %h/Documents/Github/kb_sentinel/kb_sentinel.py
+WorkingDirectory=%h/kb_sentinel
+ExecStart=%h/kb_sentinel/.venv/bin/python3 %h/kb_sentinel/kb_sentinel.py
 Restart=always
 RestartSec=5
 TimeoutStartSec=30
 TimeoutStopSec=10
 StandardOutput=journal
 StandardError=journal
-
 # Restart policy
 StartLimitInterval=300
 StartLimitBurst=3
-
-# Environment
-Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONDONTWRITEBYTECODE=1
-
-[Install]
-WantedBy=default.targetB Sentinel - 4by4 Keyboard MQTT Bridge
-Documentation=https://github.com/saikhurana98/kb_sentinel
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-WorkingDirectory=%h/Documents/Github/kb_sentinel
-ExecStart=%h/Documents/Github/kb_sentinel/.venv/bin/python %h/Documents/Github/kb_sentinel/kb_sentinel.py
-Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-
-# Environment
-Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=default.target
