@@ -48,13 +48,13 @@ jobs:
     - name: Run syntax check
       run: |
         # Simple syntax check without importing the module
-        .venv/bin/python -m py_compile kb_sentinel.py
+        .venv/bin/python3 -m py_compile kb_sentinel.py
         echo "✅ Python syntax check passed"
     
     - name: Check imports availability
       run: |
         # Check if required packages are available (but don't import kb_sentinel itself)
-        .venv/bin/python -c "
+        .venv/bin/python3 -c "
         try:
             import evdev
             import paho.mqtt.client
