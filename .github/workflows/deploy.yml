@@ -22,6 +22,10 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ~/kb_sentinel
+        
     steps:
     - uses: actions/checkout@v4
     
