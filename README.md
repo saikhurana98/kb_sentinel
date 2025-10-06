@@ -237,12 +237,15 @@ This project includes a comprehensive CI/CD pipeline with GitHub Actions that pr
 
 ### Setup CI/CD
 
-1. **Configure Secrets** in your GitHub repository:
-   - `DEPLOY_SSH_KEY`: Private SSH key for deployment host
-   - `DEPLOY_HOST`: Target host IP/hostname
-   - `DEPLOY_USER`: SSH username
+1. **Setup Self-Hosted Runner** (for local network deployment):
+   - See [`.github/RUNNER_SETUP.md`](.github/RUNNER_SETUP.md) for detailed instructions
+   - Runner enables deployment to local network devices securely
 
-2. **Prepare Target Host**:
+2. **Configure Secrets** in your GitHub repository:
+   - `DEPLOY_HOST`: Target host IP/hostname (e.g., `192.168.1.100`)
+   - `DEPLOY_USER`: SSH username (e.g., `kb-sentinel`)
+
+3. **Prepare Target Host**:
    ```bash
    # Create user and setup directories
    sudo useradd -m -s /bin/bash kb-sentinel
@@ -257,6 +260,8 @@ This project includes a comprehensive CI/CD pipeline with GitHub Actions that pr
    ```
 
 3. **Deploy**: Push to main branch triggers automatic deployment
+
+**Important:** This CI/CD pipeline uses a self-hosted GitHub runner for local network deployment. See the runner setup guide for configuration details.
 
 For detailed CI/CD documentation, see [`.github/DEPLOYMENT.md`](.github/DEPLOYMENT.md).
 

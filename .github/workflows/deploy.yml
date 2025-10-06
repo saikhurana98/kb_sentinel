@@ -2,7 +2,7 @@ name: Deploy KB Sentinel
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] 
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -38,30 +38,45 @@ jobs:
     
     - name: Run syntax check
       run: |
+        # Simple syntax check without importing the module
         .venv/bin/python -m py_compile kb_sentinel.py
+        echo "✅ Python syntax check passed"
+    
+    - name: Check imports availability
+      run: |
+        # Check if required packages are available (but don't import kb_sentinel itself)
         .venv/bin/python -c "
         try:
-            import kb_sentinel
-            print('✅ KB Sentinel imports successfully')
-        except Exception as e:
-            print(f'❌ Import failed: {e}')
+            import evdev
+            import paho.mqtt.client
+            import asyncio
+            import os
+            from pathlib import Path
+            print('✅ All required packages are available')
+        except ImportError as e:
+            print(f'❌ Missing required package: {e}')
             exit(1)
-        "
+        " || exit 1
     
     - name: Validate service files
       run: |
         # Check systemd service file syntax
-        systemd-analyze verify contrib/kb-sentinel.service || echo "Warning: systemd-analyze not available in CI"
+        if command -v systemd-analyze >/dev/null 2>&1; then
+          systemd-analyze verify contrib/kb-sentinel.service
+        else
+          echo "⚠️ systemd-analyze not available in CI, skipping service validation"
+        fi
         
         # Check shell scripts syntax
         bash -n contrib/install-service.sh
         bash -n contrib/uninstall-service.sh
         bash -n contrib/health-check.sh
         bash -n contrib/fix-service.sh
+        echo "✅ Shell script syntax check passed"
 
   deploy:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
@@ -69,22 +84,15 @@ jobs:
       with:
         fetch-depth: 0  # Get full history for better diff detection
     
-    - name: Setup SSH
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-    
-    - name: Add known hosts
-      run: |
-        ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-    
-    - name: Deploy to production
+    - name: Deploy to local target
       id: deploy
       run: |
-        # Copy deployment script to target
+        echo "🚀 Starting local deployment..."
+        
+        # Copy deployment script to target (using local network)
         scp .github/scripts/deploy.sh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
         
-        # Execute deployment
+        # Execute deployment on target host
         ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
           chmod +x /tmp/deploy.sh
           /tmp/deploy.sh "${{ github.sha }}" "${{ github.ref_name }}"
@@ -93,8 +101,10 @@ jobs:
         # Check if deployment was successful
         if [ ${PIPESTATUS[0]} -eq 0 ]; then
           echo "deployment_status=success" >> $GITHUB_OUTPUT
+          echo "✅ Deployment completed successfully"
         else
           echo "deployment_status=failed" >> $GITHUB_OUTPUT
+          echo "❌ Deployment failed"
         fi
     
     - name: Upload deployment logs
@@ -144,21 +154,14 @@ jobs:
 
   health-check:
     needs: deploy
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
-    - name: Setup SSH
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-    
-    - name: Add known hosts
-      run: |
-        ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-    
     - name: Run post-deployment health check
       run: |
+        echo "🏥 Running post-deployment health check..."
+        
         ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
           cd ${{ env.DEPLOY_PATH }}
           

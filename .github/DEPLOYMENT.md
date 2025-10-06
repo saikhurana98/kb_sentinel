@@ -5,12 +5,41 @@ This document describes the comprehensive CI/CD pipeline for KB Sentinel deploym
 ## Overview
 
 The CI/CD pipeline provides:
-- ✅ Automated testing and deployment
+- ✅ Automated testing and deployment via self-hosted runner
 - 💾 Automatic backup creation before deployments
 - 🔄 Automatic rollback on deployment failures
 - 📊 Health monitoring and reporting
 - 🛠️ Manual rollback capabilities
 - 📋 Backup management and reporting
+
+## Architecture
+
+```
+[GitHub] → [Self-Hosted Runner] → [KB Sentinel Target PC]
+             (local network)        (local network)
+```
+
+**Benefits of Self-Hosted Runner:**
+- Direct access to local network devices
+- No need to expose SSH to internet
+- Faster deployment over local network
+- Better security isolation
+
+## Prerequisites
+
+### 1. Self-Hosted GitHub Runner
+
+You need a self-hosted GitHub runner on your local network. See [RUNNER_SETUP.md](RUNNER_SETUP.md) for detailed setup instructions.
+
+**Quick Setup:**
+1. Choose a host on your network (Raspberry Pi, spare PC, etc.)
+2. Install GitHub Actions runner
+3. Configure SSH access to target PC
+4. Set repository secrets for target host info
+
+### 2. Target Host Configuration
+
+See "Host Requirements" section below for detailed setup.
 
 ## Workflows
 
@@ -108,9 +137,10 @@ The deployment script handles the complete deployment process on the target host
 
 Configure these secrets in your GitHub repository:
 
-- `DEPLOY_SSH_KEY`: Private SSH key for deployment host access
-- `DEPLOY_HOST`: Target host IP address or hostname
-- `DEPLOY_USER`: Username for SSH connection
+- `DEPLOY_HOST`: Target host IP address or hostname (e.g., `192.168.1.100`)
+- `DEPLOY_USER`: Username for SSH connection (e.g., `kb-sentinel`)
+
+**Note:** With self-hosted runner, SSH keys are configured locally on the runner host, so `DEPLOY_SSH_KEY` secret is not needed.
 
 ## Host Requirements
 
