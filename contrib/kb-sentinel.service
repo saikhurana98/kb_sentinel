@@ -7,7 +7,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/kb_sentinel
-ExecStart=%h/kb_sentinel/.venv/bin/python %h/kb_sentinel/kb_sentinel.py
+ExecStart=%h/kb_sentinel/.venv/bin/python3 %h/kb_sentinel/kb_sentinel.py
 Restart=always
 RestartSec=5
 TimeoutStartSec=30
