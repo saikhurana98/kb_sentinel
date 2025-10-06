@@ -99,10 +99,10 @@ jobs:
         echo "Deploying as user: ${{ secrets.DEPLOY_USER }} to host: ${{ secrets.DEPLOY_HOST }}"
 
         # Copy deployment script to target (using local network)
-        scp -i ~/.ssh/kb_sentinel_deploy.pub  .github/scripts/deploy.sh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
+        scp -i ~/.ssh/kb_sentinel_deploy  .github/scripts/deploy.sh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
         
         # Execute deployment on target host
-        ssh -i ~/.ssh/kb_sentinel_deploy.pub ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+        ssh -i ~/.ssh/kb_sentinel_deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
           chmod +x /tmp/deploy.sh
           /tmp/deploy.sh "${{ github.sha }}" "${{ github.ref_name }}"
         ' 2>&1 | tee deployment.log
@@ -171,7 +171,7 @@ jobs:
       run: |
         echo "🏥 Running post-deployment health check..."
         
-        ssh -i ~/.ssh/kb_sentinel_deploy.pub ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+        ssh -i ~/.ssh/kb_sentinel_deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
           cd ${{ env.DEPLOY_PATH }}
           
           # Wait a moment for service to stabilize
