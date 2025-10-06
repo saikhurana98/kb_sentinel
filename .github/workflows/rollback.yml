@@ -37,7 +37,7 @@ jobs:
       run: |
         echo "🔄 Starting rollback process..."
         
-        ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+        ssh -i ~/.ssh/kb_sentinel_deploy.pub ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
           BACKUP_TIMESTAMP="${{ github.event.inputs.backup_timestamp }}"
           DEPLOY_PATH="/home/kb-sentinel/kb_sentinel"
           BACKUP_PATH="/home/kb-sentinel/backups"
