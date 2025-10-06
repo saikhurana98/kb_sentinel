@@ -69,7 +69,7 @@ SERVICE_FILE="$SYSTEMD_USER_DIR/kb-sentinel.service"
 print_info "Creating service file: $SERVICE_FILE"
 
 # Replace placeholders in the service file
-sed "s|%h/Documents/Github/kb_sentinel|$PROJECT_DIR|g" contrib/kb-sentinel.service > "$SERVICE_FILE"
+sed "s|%h/kb_sentinel|$PROJECT_DIR|g" contrib/kb-sentinel.service > "$SERVICE_FILE"
 
 print_success "Service file created"
 
