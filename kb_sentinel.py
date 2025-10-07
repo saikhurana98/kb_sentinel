@@ -99,18 +99,20 @@ def publish_discovery_configs():
         mqtt_client.publish(discovery_topic, json.dumps(payload), retain=True)
         print(f"📡 Published discovery for: {key_name}")
 
-    # Create a single sensor for whenever any key is pressed, update the value with the value of the key that was pressed
+    # Create a Text Sensor for Sending the Payload as stringified JSON, along with current timestamp
     key_press_topic = f"{HA_DISCOVERY_PREFIX}/sensor/{DEVICE_ID}_key_press/config"
     payload = {
         "name": "Key Press",
         "unique_id": f"{DEVICE_ID}_key_press",
         "state_topic": f"{BASE_TOPIC}/key_press",
         "device": device_info,
-        "icon": "mdi:keyboard",
+        "icon": "mdi:keyboard-text",
     }
     mqtt_client.publish(key_press_topic, json.dumps(payload), retain=True)
     print("📡 Published discovery for: key_press")
-    
+
+
+
 
     # Also create a “last pressed” sensor
     last_key_topic = f"{HA_DISCOVERY_PREFIX}/sensor/{DEVICE_ID}_last_pressed/config"
@@ -178,6 +180,10 @@ async def monitor_device(device):
                     print(f"📨 Pressed: {payload} → topic: {safe_payload}")
                     mqtt_client.publish(f"{BASE_TOPIC}/{safe_payload}", "pressed", retain=False)
                     mqtt_client.publish(f"{BASE_TOPIC}/last_pressed", payload, retain=False)
+                    mqtt_client.publish(f"{BASE_TOPIC}/key_press", json.dumps({
+                        "key": payload,
+                        "timestamp": int(time.time())
+                    }), retain=False)
 
 # --- Read battery via upower ---
 def get_keyboard_battery_percentage():
