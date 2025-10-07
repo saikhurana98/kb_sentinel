@@ -101,6 +101,17 @@ jobs:
         # Copy deployment script to target (using local network)
         scp -i ~/.ssh/kb_sentinel_deploy  .github/scripts/deploy.sh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
         
+
+        # Preparing the .env file for deployment
+        echo "Preparing .env file for deployment..."
+        
+        ssh -i ~/.ssh/kb_sentinel_deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+          cat <<EOF > ${{ env.DEPLOY_PATH }}/.env
+          MQTT_BROKER=${{ secrets.MQTT_BROKER }}
+          MQTT_USERNAME=${{ secrets.MQTT_USERNAME }}
+          MQTT_PASSWORD=${{ secrets.MQTT_PASSWORD }}
+          EOF
+
         # Execute deployment on target host
         ssh -i ~/.ssh/kb_sentinel_deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
           chmod +x /tmp/deploy.sh
