@@ -89,7 +89,9 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Get full history for better diff detection
-    
+  
+        
+
     - name: Deploy to local target
       id: deploy
       run: |
@@ -110,8 +112,9 @@ jobs:
           MQTT_BROKER=${{ secrets.MQTT_BROKER }}
           MQTT_USERNAME=${{ secrets.MQTT_USERNAME }}
           MQTT_PASSWORD=${{ secrets.MQTT_PASSWORD }}
-          EOF
+          EOF'
 
+          
         # Execute deployment on target host
         ssh -i ~/.ssh/kb_sentinel_deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
           chmod +x /tmp/deploy.sh
