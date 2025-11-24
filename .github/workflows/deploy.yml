@@ -82,15 +82,13 @@ jobs:
 
   deploy:
     needs: test
-    runs-on: self-hosted
+    runs-on: prox-runner-selfh-1
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Get full history for better diff detection
-  
-        
 
     - name: Deploy to local target
       id: deploy
@@ -177,7 +175,7 @@ jobs:
 
   health-check:
     needs: deploy
-    runs-on: self-hosted
+    runs-on: prox-runner-selfh-1
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
