@@ -14,7 +14,7 @@ on:
 
 jobs:
   rollback:
-    runs-on: self-hosted
+    runs-on: prox-runner-selfh-1
     if: github.event.inputs.confirm_rollback == 'CONFIRM'
     
     steps:

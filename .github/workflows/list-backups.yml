@@ -8,7 +8,7 @@ on:
 
 jobs:
   list-backups:
-    runs-on: self-hosted
+    runs-on: prox-runner-selfh-1
     
     steps:
     - name: List available backups
