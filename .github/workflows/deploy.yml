@@ -82,7 +82,7 @@ jobs:
 
   deploy:
     needs: test
-    runs-on: prox-runner-selfh-1
+    runs-on: proxmox-home
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
@@ -175,7 +175,7 @@ jobs:
 
   health-check:
     needs: deploy
-    runs-on: prox-runner-selfh-1
+    runs-on: proxmox-home
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
