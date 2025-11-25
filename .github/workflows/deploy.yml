@@ -102,8 +102,8 @@ jobs:
         echo "Installing dependencies..."
         ssh -i ~/.ssh/kb_sentinel_deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
           sudo apt-get update
-          sudo apt-get install -y python3-venv python3-pip git 
-          
+          sudo apt-get install -y python3-venv python3-pip git
+        '
 
         # Copy deployment script to target (using local network)
         scp -i ~/.ssh/kb_sentinel_deploy  .github/scripts/deploy.sh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
