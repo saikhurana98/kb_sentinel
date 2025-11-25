@@ -1,13 +1,12 @@
 #!/bin/bash
 
 # KB Sentinel Deployment Script
-# This script handles backup, deployment, error checking, and rollback
+# This script handles  deployment & error checking
 
 set -e
 
 # Configuration
 DEPLOY_PATH="/home/kb-sentinel/kb_sentinel"
-BACKUP_PATH="/home/kb-sentinel/backups"
 SERVICE_NAME="kb-sentinel"
 LOG_FILE="/tmp/kb-sentinel-deploy.log"
 REPO_URL="https://github.com/saikhurana98/kb_sentinel.git"
@@ -44,47 +43,11 @@ log_error() {
 cleanup_on_error() {
     local exit_code=$?
     log_error "Deployment failed with exit code $exit_code"
-    
-    if [ -n "$BACKUP_TIMESTAMP" ] && [ -d "$BACKUP_PATH/kb_sentinel_$BACKUP_TIMESTAMP" ]; then
-        log_warning "Attempting to rollback to previous version..."
-        rollback_deployment
-    fi
-    
     exit $exit_code
 }
 
 trap cleanup_on_error ERR
 
-# Create backup of current deployment
-create_backup() {
-    log_info "Creating backup of current deployment..."
-    
-    # Create backup directory if it doesn't exist
-    mkdir -p "$BACKUP_PATH"
-    
-    # Generate timestamp for backup
-    BACKUP_TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-    BACKUP_DIR="$BACKUP_PATH/kb_sentinel_$BACKUP_TIMESTAMP"
-    
-    if [ -d "$DEPLOY_PATH" ]; then
-        # Stop service before backup
-        log_info "Stopping service for backup..."
-        systemctl --user stop "$SERVICE_NAME.service" || log_warning "Service was not running"
-        
-        # Create backup
-        cp -r "$DEPLOY_PATH" "$BACKUP_DIR"
-        log_success "Backup created at $BACKUP_DIR"
-        
-        # Store current commit info
-        if [ -d "$DEPLOY_PATH/.git" ]; then
-            cd "$DEPLOY_PATH"
-            git rev-parse HEAD > "$BACKUP_DIR/.previous_commit" 2>/dev/null || echo "unknown" > "$BACKUP_DIR/.previous_commit"
-        fi
-    else
-        log_info "No existing deployment found, skipping backup"
-        mkdir -p "$DEPLOY_PATH"
-    fi
-}
 
 # Deploy new version
 deploy_new_version() {
@@ -104,7 +67,7 @@ deploy_new_version() {
         git reset --hard "$COMMIT_SHA"
         
         # Clean any untracked files
-        git clean -fd
+        git clean -fd --exclude=.env
     else
         # Fresh clone
         log_info "Cloning repository..."
@@ -213,59 +176,8 @@ start_and_verify_service() {
     fi
 }
 
-# Rollback to previous version
-rollback_deployment() {
-    if [ -z "$BACKUP_TIMESTAMP" ]; then
-        log_error "No backup timestamp available for rollback"
-        return 1
-    fi
-    
-    local backup_dir="$BACKUP_PATH/kb_sentinel_$BACKUP_TIMESTAMP"
-    
-    if [ ! -d "$backup_dir" ]; then
-        log_error "Backup directory not found: $backup_dir"
-        return 1
-    fi
-    
-    log_warning "Rolling back to previous version..."
-    
-    # Stop current service
-    systemctl --user stop "$SERVICE_NAME.service" || log_warning "Service was not running"
-    
-    # Remove current deployment
-    rm -rf "$DEPLOY_PATH"
-    
-    # Restore from backup
-    cp -r "$backup_dir" "$DEPLOY_PATH"
-    
-    # Start service
-    cd "$DEPLOY_PATH"
-    systemctl --user start "$SERVICE_NAME.service"
-    
-    if systemctl --user is-active --quiet "$SERVICE_NAME.service"; then
-        log_success "Rollback completed successfully"
-    else
-        log_error "Rollback failed - service did not start"
-        return 1
-    fi
-}
 
-# Clean old backups (keep last 5)
-cleanup_old_backups() {
-    log_info "Cleaning up old backups..."
-    
-    if [ -d "$BACKUP_PATH" ]; then
-        # Keep last 5 backups
-        ls -t "$BACKUP_PATH"/kb_sentinel_* 2>/dev/null | tail -n +6 | while read -r old_backup; do
-            if [ -d "$old_backup" ]; then
-                log_info "Removing old backup: $(basename "$old_backup")"
-                rm -rf "$old_backup"
-            fi
-        done
-    fi
-    
-    log_success "Backup cleanup completed"
-}
+
 
 # Main deployment process
 main() {
@@ -277,12 +189,10 @@ main() {
     # Clear previous log
     > "$LOG_FILE"
     
-    create_backup
     deploy_new_version
     setup_environment
     test_deployment
     start_and_verify_service
-    cleanup_old_backups
     
     log_success "Deployment completed successfully!"
     
@@ -294,7 +204,6 @@ main() {
 Status: SUCCESS
 Commit: $COMMIT_SHA
 Branch: $BRANCH_NAME
-Backup: $BACKUP_TIMESTAMP
 Log: $LOG_FILE
 Time: $(date)
 ========================================
