@@ -101,6 +101,10 @@ jobs:
         # Copy deployment script to target (using local network)
         scp -i ~/.ssh/kb_sentinel_deploy  .github/scripts/deploy.sh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/
         
+        # Create Deploy Path if it doesn't exist
+        ssh -i ~/.ssh/kb_sentinel_deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+          mkdir -p ${{ env.DEPLOY_PATH }}
+        '
 
         # Preparing the .env file for deployment
         echo "Preparing .env file for deployment..."
