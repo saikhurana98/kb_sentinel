@@ -105,12 +105,14 @@ jobs:
         # Preparing the .env file for deployment
         echo "Preparing .env file for deployment..."
         
-        ssh -i ~/.ssh/kb_sentinel_deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
-          cat <<EOF > ${{ env.DEPLOY_PATH }}/.env
-          MQTT_BROKER=${{ secrets.MQTT_BROKER }}
-          MQTT_USERNAME=${{ secrets.MQTT_USERNAME }}
-          MQTT_PASSWORD=${{ secrets.MQTT_PASSWORD }}
-          EOF'
+        # Build .env locally to avoid fragile remote heredoc quoting/indent warnings
+        cat > .env.deploy <<'EOF'
+        MQTT_BROKER=${{ secrets.MQTT_BROKER }}
+        MQTT_USERNAME=${{ secrets.MQTT_USERNAME }}
+        MQTT_PASSWORD=${{ secrets.MQTT_PASSWORD }}
+        EOF
+        scp -i ~/.ssh/kb_sentinel_deploy .env.deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ env.DEPLOY_PATH }}/.env
+        rm -f .env.deploy
 
           
         # Execute deployment on target host
