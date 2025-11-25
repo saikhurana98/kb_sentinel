@@ -60,6 +60,15 @@ deploy_new_version() {
         cd "$DEPLOY_PATH"
         log_info "Updating existing repository..."
         
+        # Preserve .env contents even if it's (mistakenly) tracked
+        if [ -f .env ]; then
+            cp .env /tmp/kb-sentinel.env.backup
+            if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+                log_warning ".env appears to be tracked by git; consider adding it to .gitignore for safer preservation."
+            fi
+            log_info "Backed up existing .env file"
+        fi
+        
         # Fetch latest changes
         git fetch origin
         
@@ -68,13 +77,29 @@ deploy_new_version() {
         
         # Clean any untracked files
         git clean -fd --exclude=.env
+        
+        # Restore .env after reset/clean
+        if [ -f /tmp/kb-sentinel.env.backup ]; then
+            mv /tmp/kb-sentinel.env.backup .env
+            log_info "Restored preserved .env file"
+        fi
     else
         # Fresh clone
         log_info "Cloning repository..."
+        # Backup .env if directory exists from previous deployment
+        if [ -d "$DEPLOY_PATH" ] && [ -f "$DEPLOY_PATH/.env" ]; then
+            cp "$DEPLOY_PATH/.env" /tmp/kb-sentinel.env.backup
+            log_info "Preserved existing .env before fresh clone"
+        fi
         rm -rf "$DEPLOY_PATH"
         git clone "$REPO_URL" "$DEPLOY_PATH"
         cd "$DEPLOY_PATH"
         git checkout "$COMMIT_SHA"
+        # Restore .env if it was backed up
+        if [ -f /tmp/kb-sentinel.env.backup ]; then
+            mv /tmp/kb-sentinel.env.backup "$DEPLOY_PATH/.env"
+            log_info "Restored preserved .env after fresh clone"
+        fi
     fi
     
     log_success "Repository updated to commit $COMMIT_SHA"
