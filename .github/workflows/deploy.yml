@@ -122,8 +122,8 @@ jobs:
         MQTT_USERNAME=${{ secrets.MQTT_USERNAME }}
         MQTT_PASSWORD=${{ secrets.MQTT_PASSWORD }}
         EOF
-        scp -i ~/.ssh/kb_sentinel_deploy .env.deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ env.DEPLOY_PATH }}/.env
-        # rm -f .env.deploy
+        scp -i ~/.ssh/kb_sentinel_deploy  .env.deploy ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ env.DEPLOY_PATH }}/.env
+        rm -f .env.deploy
 
           
         # Execute deployment on target host
