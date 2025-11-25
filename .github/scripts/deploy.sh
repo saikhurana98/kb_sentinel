@@ -49,6 +49,25 @@ cleanup_on_error() {
 trap cleanup_on_error ERR
 
 
+# check preexisting deployment
+check_preexisting_deployment() {
+    log_info "Checking for pre-existing deployment at $DEPLOY_PATH..."
+    # System Dependencies
+    log_info "Checking and installing system dependencies..."
+    sudo apt-get update
+    sudo apt-get install -y python3-venv python3-pip git
+
+    # User Group Permissions
+    log_info "Ensuring user is in 'input' group for device access..."
+    if ! groups "$USER" | grep &>/dev/null "\binput\b"; then
+        sudo usermod -aG input "$USER"
+        log_info "Added $USER to 'input' group. You may need to log out and back in for changes to take effect."
+    else
+        log_info "$USER is already in 'input' group."
+    fi
+}
+
+
 # Deploy new version
 deploy_new_version() {
     log_info "Deploying new version (commit: $COMMIT_SHA)..."
@@ -214,6 +233,7 @@ main() {
     # Clear previous log
     > "$LOG_FILE"
     
+    check_preexisting_deployment
     deploy_new_version
     setup_environment
     test_deployment
