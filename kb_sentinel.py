@@ -161,29 +161,53 @@ def mqtt_safe(s: str) -> str:
     return s.replace("+", "_").replace("#", "_").replace("/", "_")
 
 async def monitor_device(device):
-    print(f"🎧 Listening on {device.path} ({device.name})")
+    """Continuously read from the input device, and auto-recover if it disappears.
+
+    If the device is unplugged or the fd becomes invalid (OSError: No such device),
+    we back off briefly and re-scan until the target device is available again.
+    """
+    current_device = device
     pressed_keys = set()
 
-    async for event in device.async_read_loop():
-        if event.type == ecodes.EV_KEY:
-            key_event = categorize(event)
-            key_name = key_event.keycode if hasattr(key_event, "keycode") else str(event.code)
+    while True:
+        try:
+            print(f"🎧 Listening on {current_device.path} ({current_device.name})")
+            async for event in current_device.async_read_loop():
+                if event.type == ecodes.EV_KEY:
+                    key_event = categorize(event)
+                    key_name = key_event.keycode if hasattr(key_event, "keycode") else str(event.code)
 
-            if key_event.keystate == key_event.key_down:
-                pressed_keys.add(key_name)
-            elif key_event.keystate == key_event.key_up:
-                pressed_keys.discard(key_name)
+                    if key_event.keystate == key_event.key_down:
+                        pressed_keys.add(key_name)
+                    elif key_event.keystate == key_event.key_up:
+                        pressed_keys.discard(key_name)
 
-            for combo, payload in HOTKEYS.items():
-                if combo.issubset(pressed_keys):
-                    safe_payload = mqtt_safe(payload)
-                    print(f"📨 Pressed: {payload} → topic: {safe_payload}")
-                    mqtt_client.publish(f"{BASE_TOPIC}/{safe_payload}", "pressed", retain=False)
-                    mqtt_client.publish(f"{BASE_TOPIC}/last_pressed", payload, retain=False)
-                    mqtt_client.publish(f"{BASE_TOPIC}/key_press", json.dumps({
-                        "key": payload,
-                        "timestamp": int(time.time())
-                    }), retain=False)
+                    for combo, payload in HOTKEYS.items():
+                        if combo.issubset(pressed_keys):
+                            safe_payload = mqtt_safe(payload)
+                            print(f"📨 Pressed: {payload} → topic: {safe_payload}")
+                            mqtt_client.publish(f"{BASE_TOPIC}/{safe_payload}", "pressed", retain=False)
+                            mqtt_client.publish(f"{BASE_TOPIC}/last_pressed", payload, retain=False)
+                            mqtt_client.publish(f"{BASE_TOPIC}/key_press", json.dumps({
+                                "key": payload,
+                                "timestamp": int(time.time())
+                            }), retain=False)
+        except OSError as e:
+            # Device likely disconnected (e.g., Errno 19: No such device). Reacquire.
+            print(f"⚠️ Input device error: {e}. Reacquiring '{TARGET_KEYBOARD_NAME}'...")
+            pressed_keys.clear()
+            await asyncio.sleep(2)
+            current_device = None
+            while current_device is None:
+                current_device = find_target_keyboard()
+                if not current_device:
+                    print(f"⏳ Waiting for '{TARGET_KEYBOARD_NAME}' to appear... (retry in 5s)")
+                    await asyncio.sleep(5)
+            print(f"🔌 Reattached: {current_device.name} ({current_device.path})")
+        except Exception as e:
+            # Unexpected error; brief backoff then retry listening
+            print(f"⚠️ Unexpected device read error: {e}. Retrying in 2s...")
+            await asyncio.sleep(2)
 
 # --- Read battery via upower ---
 def get_keyboard_battery_percentage():
