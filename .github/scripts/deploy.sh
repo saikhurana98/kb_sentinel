@@ -55,7 +55,7 @@ check_preexisting_deployment() {
     # System Dependencies
     log_info "Checking and installing system dependencies..."
     sudo apt-get update
-    sudo apt-get install -y python3-venv python3-pip git
+    sudo apt-get install -y python3-venv python3-pip git upower
 
     # User Group Permissions
     log_info "Ensuring user is in 'input' group for device access..."

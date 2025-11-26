@@ -219,12 +219,18 @@ async def publish_battery_status():
 
 async def main():
     print(f"🔍 Searching for keyboard: '{TARGET_KEYBOARD_NAME}'")
-    device = find_target_keyboard()
-    if not device:
-        print(f"❌ No device found matching name: '{TARGET_KEYBOARD_NAME}'")
-        print("Run `python3 -m evdev.evtest` to list available devices.")
-        return
-
+    
+    # Keep trying to find the device until it's available
+    device = None
+    while device is None:
+        device = find_target_keyboard()
+        if not device:
+            print(f"⏳ Device '{TARGET_KEYBOARD_NAME}' not found. Retrying in 5 seconds...")
+            print("   (Run `python3 -m evdev.evtest` to list available devices)")
+            await asyncio.sleep(5)
+        else:
+            print(f"✅ Device found and ready!")
+    
     list_keybinds()
     publish_discovery_configs()
     await asyncio.gather(
