@@ -72,6 +72,15 @@ def connect_mqtt():
         time.sleep(5)
         connect_mqtt()
 
+def disconnect_mqtt():
+    """Gracefully disconnect from MQTT broker."""
+    try:
+        mqtt_client.loop_stop()
+        mqtt_client.disconnect()
+        print("\n👋 Disconnected from MQTT broker")
+    except Exception as e:
+        print(f"⚠️ Error disconnecting from MQTT: {e}")
+
 connect_mqtt()
 
 # --- Home Assistant Discovery ---
@@ -138,6 +147,21 @@ def publish_discovery_configs():
     }
     mqtt_client.publish(battery_topic, json.dumps(payload), retain=True)
 
+    # Binary sensor for keyboard connection status
+    connection_topic = f"{HA_DISCOVERY_PREFIX}/binary_sensor/{DEVICE_ID}_connected/config"
+    payload = {
+        "name": "Keyboard Connected",
+        "unique_id": f"{DEVICE_ID}_connected",
+        "state_topic": f"{BASE_TOPIC}/isKeyboardConnected",
+        "device": device_info,
+        "payload_on": "true",
+        "payload_off": "false",
+        "device_class": "connectivity",
+        "icon": "mdi:usb",
+    }
+    mqtt_client.publish(connection_topic, json.dumps(payload), retain=True)
+    print("📡 Published discovery for: isKeyboardConnected")
+
 
 # --- Utilities ---
 def list_keybinds():
@@ -160,6 +184,13 @@ def mqtt_safe(s: str) -> str:
     """Convert strings like 'ctrl+alt+b' into MQTT-safe topics."""
     return s.replace("+", "_").replace("#", "_").replace("/", "_")
 
+def publish_connection_state(is_connected: bool):
+    """Publish the keyboard connection state to MQTT."""
+    state = "true" if is_connected else "false"
+    mqtt_client.publish(f"{BASE_TOPIC}/isKeyboardConnected", state, retain=True)
+    status = "connected" if is_connected else "disconnected"
+    print(f"🔌 Keyboard {status}")
+
 async def monitor_device(device):
     """Continuously read from the input device, and auto-recover if it disappears.
 
@@ -172,6 +203,7 @@ async def monitor_device(device):
     while True:
         try:
             print(f"🎧 Listening on {current_device.path} ({current_device.name})")
+            publish_connection_state(True)
             async for event in current_device.async_read_loop():
                 if event.type == ecodes.EV_KEY:
                     key_event = categorize(event)
@@ -192,9 +224,14 @@ async def monitor_device(device):
                                 "key": payload,
                                 "timestamp": int(time.time())
                             }), retain=False)
+        except asyncio.CancelledError:
+            # Task was cancelled (e.g., during shutdown)
+            print("🛑 Monitoring task cancelled")
+            raise
         except OSError as e:
             # Device likely disconnected (e.g., Errno 19: No such device). Reacquire.
             print(f"⚠️ Input device error: {e}. Reacquiring '{TARGET_KEYBOARD_NAME}'...")
+            publish_connection_state(False)
             pressed_keys.clear()
             await asyncio.sleep(2)
             current_device = None
@@ -231,14 +268,18 @@ async def publish_battery_status():
     """
     Periodically fetch and publish the battery percentage.
     """
-    while True:
-        percentage = get_keyboard_battery_percentage()
-        if percentage is not None:
-            print(f"Keyboard Battery Percentage: {percentage}%")
-            mqtt_client.publish(f"{BASE_TOPIC}/battery", str(percentage), retain=True)
-        else:
-            print("Battery percentage not found.")
-        await asyncio.sleep(30)
+    try:
+        while True:
+            percentage = get_keyboard_battery_percentage()
+            if percentage is not None:
+                print(f"Keyboard Battery Percentage: {percentage}%")
+                mqtt_client.publish(f"{BASE_TOPIC}/battery", str(percentage), retain=True)
+            else:
+                print("Battery percentage not found.")
+            await asyncio.sleep(30)
+    except asyncio.CancelledError:
+        print("🛑 Battery monitoring task cancelled")
+        raise
 
 
 async def main():
@@ -257,15 +298,27 @@ async def main():
     
     list_keybinds()
     publish_discovery_configs()
-    await asyncio.gather(
-            monitor_device(device),
-            publish_battery_status()
-    )
+    
+    try:
+        await asyncio.gather(
+                monitor_device(device),
+                publish_battery_status()
+        )
+    except KeyboardInterrupt:
+        print("\n⚠️ KeyboardInterrupt received, shutting down gracefully...")
+    finally:
+        publish_connection_state(False)
+        disconnect_mqtt()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n👋 Program terminated by user")
     except RuntimeError:
         # Already running event loop (e.g., Jupyter) → use alternative
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
+        try:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(main())
+        except KeyboardInterrupt:
+            print("\n👋 Program terminated by user")
